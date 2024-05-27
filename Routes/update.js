@@ -324,9 +324,7 @@ router.patch('/tutors/student/assign/:id', async (req, res) => {
       data: { ...teacher, applicants: teacherApplicants },
     });
   } catch (error) {
-    if (!teacher) {
-      return res.status(500).json({ status: false, message: 'Internal Server Error' });
-    }
+    return res.status(500).json({ status: false, message: 'Internal Server Error' });
   }
 });
 
@@ -378,5 +376,61 @@ router.patch('/user-info/:id', async (req, res) => {
     res.status(500).json({ status: false, message: 'Something went wrong' });
   }
 });
+
+
+router.patch('/ratings', async (req, res) => {
+  const { teacherId, newRating, by: applicantEmail } = req.body;
+
+  if (!teacherId || !newRating || !applicantEmail) return res.status(404).json({
+    status: false,
+    message: 'Bad Request'
+  });
+
+  try {
+    const collection = await connectToDB('TUITION', 'TEACHER');
+
+    const teacher = await collection.findOne({ _id: ObjectID(teacherId) });
+
+
+    if (!teacher) {
+      return res.status(400).json({ status: false, message: 'Teacher not found' });
+    }
+
+    const teacherApplicants = teacher?.applicants || [];
+
+
+    const newApplicantsArray = teacherApplicants.map((applicant) => {
+      if (applicant.email === applicantEmail) {
+        return {
+          ...applicant,
+          rating: newRating,
+        }
+      }
+
+      return applicant;
+    })
+
+
+    await collection.updateOne(
+      { _id: ObjectID(teacherId) },
+      {
+        $set: {
+          applicants: newApplicantsArray,
+        },
+      },
+    );
+
+
+    res.status(200).json({
+      status: true,
+      data: { ...teacher, applicants: newApplicantsArray },
+    });
+
+  } catch (error) {
+    return res.status(500).json({ status: false, message: 'Internal Server Error' });
+  }
+
+  return res.status(200);
+})
 
 module.exports = router;
